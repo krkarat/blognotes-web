@@ -54,12 +54,12 @@ export async function download(key) {
     let m = await meta(key);
     if (m.ok) return;
     setState({ loading: key, done: m.bytes, total: mi.size, error: null });
-    let lastErr = null;
+    let lastErr = null, localErr = null;
     // сначала со своего сайта (тот же адрес, что и приложение: без блокировок и чужих серверов)
     const local = await fetch('models/' + mi.file + '.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
     if (local && local.size === mi.size) {
       for (let attempt = 0; attempt < 6 && m.bytes < mi.size; attempt++) {
-        try { m = await fetchParts(key, mi, m, local.parts); } catch (e) { lastErr = e; console.warn('model local', e); await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); }
+        try { m = await fetchParts(key, mi, m, local.parts); } catch (e) { lastErr = localErr = e; console.warn('model local', String(e && e.name), String(e && e.message || e)); await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); }
       }
     }
     for (let attempt = 0; attempt < 6 && m.bytes < mi.size; attempt++) {
@@ -67,13 +67,13 @@ export async function download(key) {
         try {
           m = await fetchFrom(base + mi.file, key, mi, m);
           if (m.bytes >= mi.size) break;
-        } catch (e) { lastErr = e; console.warn('model', base, e); }
+        } catch (e) { lastErr = e; console.warn('model', base, String(e && e.message || e)); }
       }
       if (m.bytes < mi.size) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
     }
     if (m.bytes !== mi.size) {
       if (m.bytes > mi.size) await remove(key);
-      throw lastErr || new Error('скачалось ' + m.bytes + ' байт из ' + mi.size);
+      throw localErr || lastErr || new Error('скачалось ' + m.bytes + ' байт из ' + mi.size);
     }
     const bad = await validate(new Blob(await parts(key)));
     if (bad) { await remove(key); throw new Error('файл модели повреждён (' + bad + '), скачаю заново при следующей попытке'); }

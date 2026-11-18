@@ -1,5 +1,5 @@
 // Приложение открывается без интернета: всё нужное лежит в кэше. Модель хранится отдельно (IndexedDB).
-const VERSION = 'bn-4a861c9';
+const VERSION = 'bn-2b13f60';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
   'fonts/onest.woff2', 'fonts/unbounded.woff2', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
@@ -17,5 +17,6 @@ self.addEventListener('message', e => { if (e.data === 'skip') self.skipWaiting(
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
+  if (u.pathname.includes('/models/')) return; // куски модели идут мимо кэша, сразу в сеть
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request)));
 });
