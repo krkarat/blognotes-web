@@ -1,6 +1,8 @@
 // Тексты и фразы. Сгенерировано из notes/.../data/Texts.kt, держать в синхроне с Android-версией.
 export const DEFAULT_AI_TEMPLATE = "Я блогер. Рубрика: {рубрика}.\nНиже моя сырая идея и заметки к ней, как я их надиктовывал(а). Формат: {формат}.\n\nСделай:\n1. 5 вариантов цепляющего начала (для видео: первые 2 секунды, текст в кадре и что говорю; для текста: первая строка).\n2. Готовую структуру под формат: для рилса сценарий на 30–45 секунд по кадрам, для карусели текст по слайдам, для поста текст целиком.\n3. Подпись и 1 вопрос аудитории для комментариев.\nПиши живым языком, без рекламных штампов.\n\nИдея: {название}\n\nЗаметки:\n{заметки}\n\nРеференсы:\n{ссылки}";
 
+export const DEFAULT_AI_TEMPLATE_IDEA = "Ниже моя мысль, надиктованная голосом, и заметки к ней. Тема: {рубрика}.\n\nСделай:\n1. Сформулируй суть в 2–3 предложениях.\n2. Разложи по пунктам: чего я хочу, зачем, что уже есть.\n3. Найди пробелы и слабые места, задай мне 3 уточняющих вопроса.\n4. Предложи конкретные следующие шаги.\nПиши просто, без воды.\n\nМысль: {название}\n\nЗаметки:\n{заметки}\n\nСсылки и материалы:\n{ссылки}";
+
 export const RUBRIC_COLORS = ['#FFB38A', '#9FD8C8', '#B9A7FF', '#FFD27A', '#8EC5FF', '#F5A3C7', '#C8E07A', '#E0B48A'];
 
 export const PHRASES = [
@@ -89,11 +91,17 @@ export function splitLinks(text) {
   return out;
 }
 
+/** Текст расшифровки без «галлюцинаций» Whisper, длинное делится на абзацы примерно по 3 предложения */
 export function cleanTranscript(raw) {
-  return raw.split('\n').map(l => l.trim()).filter(l => l)
+  const t = raw.split('\n').map(l => l.trim()).filter(l => l)
     .filter(l => !(HALLUCINATIONS.some(h => l.toLowerCase().includes(h)) && l.length < 80))
     .filter(l => !/^[\[(*].*[\])*]$/.test(l))
     .join(' ').replace(/\s+/g, ' ').trim();
+  const sentences = (t.match(/[^.!?…]+[.!?…]+["»)]*\s*|[^.!?…]+$/g) || []).map(x => x.trim()).filter(Boolean);
+  if (sentences.length <= 4) return t;
+  const out = [];
+  for (let k = 0; k < sentences.length; k += 3) out.push(sentences.slice(k, k + 3).join(' '));
+  return out.join('\n\n');
 }
 
 let order = [], pos = 0;

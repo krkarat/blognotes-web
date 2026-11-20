@@ -38,6 +38,7 @@ a { color: var(--accent); }
 
 .top { display: flex; align-items: center; gap: 2px; padding: 8px 8px 0 20px; min-height: 52px; }
 .top .h-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top .h-title.two { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ib { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); }
 .ib:active { background: var(--card); }
 
@@ -155,3 +156,40 @@ textarea.field { resize: vertical; min-height: 120px; line-height: 1.45; }
 .steps li { counter-increment: s; display: flex; gap: 12px; align-items: flex-start; }
 .steps li::before { content: counter(s); font: 600 15px/30px O; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--on-accent); text-align: center; flex: none; }
 .ios-ic { display: inline-flex; vertical-align: -5px; background: var(--card); border-radius: 8px; padding: 3px; color: var(--accent); }
+
+/* 1.1: как в Android */
+.rpill { padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mic3d { width: 108px; height: 108px; position: relative; display: grid; place-items: center; }
+.mic3d img { width: 108px; height: 108px; position: relative; transform-origin: 50% 85%; -webkit-user-drag: none; user-select: none; }
+.mic3d:active img { scale: .92; }
+.mic3d .halo { position: absolute; width: 170px; height: 170px; left: -31px; top: -31px; border-radius: 50%; pointer-events: none; }
+.tt { position: relative; display: grid; place-items: center; }
+.tt > * { grid-area: 1 / 1; }
+.tt-glow { filter: blur(6px); }
+.sheet-wrap { position: fixed; inset: 0; z-index: 10; }
+.sheet-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.55); animation: fade .2s; }
+:root[data-theme="light"] .sheet-scrim { background: rgba(0,0,0,.35); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .sheet-scrim { background: rgba(0,0,0,.35); } }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; top: calc(10px + env(safe-area-inset-top)); background: var(--surface); border-radius: 28px 28px 0 0;
+  display: flex; flex-direction: column; box-shadow: 0 -10px 40px rgba(0,0,0,.35); animation: up .22s ease-out; }
+@keyframes up { from { transform: translateY(40px); opacity: .4 } }
+.grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 0; flex: none; }
+.backc { width: 44px; height: 44px; border-radius: 50%; background: var(--card); display: grid; place-items: center; color: var(--ink); }
+.aibtn { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 99px; background: var(--warm); color: #1B1830; font-weight: 600; font-size: 15px; }
+.okbtn { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; flex: none; }
+.done-head { display: flex; align-items: center; gap: 8px; padding: 8px 4px; color: var(--muted); font-weight: 600; font-size: 15px; }
+.fbar { display: flex; align-items: center; gap: 2px; margin-top: 4px; }
+.fbar > button:not(.okbtn) { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--ink); }
+.fbar > button:not(.okbtn):active { background: var(--line); }
+.rich { font-size: 16px; line-height: 23px; word-wrap: break-word; white-space: pre-wrap; }
+.rl { display: flex; align-items: flex-start; gap: 8px; padding: 1px 0; }
+.rl .bul { width: 10px; color: var(--muted); flex: none; }
+.rl .cb { flex: none; margin-top: 1px; }
+.sendbtn { display: flex; align-items: center; gap: 10px; padding: 14px 26px; border-radius: 99px; background: var(--warm); color: #1B1830; font-weight: 600; margin: 16px auto calc(20px + env(safe-area-inset-bottom)); flex: none; }
+.rub-row { background: var(--surface); border-radius: 12px; user-select: none; -webkit-user-select: none; }
+.marq { overflow: hidden; white-space: nowrap; }
+.marq > span { display: inline-block; }
+.chips .chip { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.menu span { flex: 1; }
+.inspire-ov { cursor: default; }
+.inspire .ch { transition: none; }

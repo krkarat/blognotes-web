@@ -1,10 +1,13 @@
 // Данные приложения. Формат JSON совпадает с Android-версией, поэтому резервные копии
 // переносятся между телефонами в обе стороны.
 import * as idb from './idb.js';
-import { DEFAULT_AI_TEMPLATE, RUBRIC_COLORS, headline } from './texts.js';
+import { DEFAULT_AI_TEMPLATE, DEFAULT_AI_TEMPLATE_IDEA, RUBRIC_COLORS, headline } from './texts.js';
+import { plain } from './format.js';
 
-export const STATUSES = [['RAW', 'Сырая'], ['WORK', 'В работе'], ['SHOT', 'Снято'], ['PUBLISHED', 'Опубликовано']];
-export const statusLabel = s => (STATUSES.find(x => x[0] === s) || STATUSES[0])[1];
+// Два статуса, как в Android. Старые (Сырая/Снято/Опубликовано) сводятся к ним
+export const STATUSES = [['WORK', 'В работе'], ['DONE', 'Закрыто']];
+export const statusOf = s => (s === 'DONE' || s === 'SHOT' || s === 'PUBLISHED') ? 'DONE' : 'WORK';
+export const statusLabel = s => (STATUSES.find(x => x[0] === statusOf(s)) || STATUSES[0])[1];
 
 export function newId() {
   const a = crypto.getRandomValues(new Uint8Array(6));
@@ -12,8 +15,8 @@ export function newId() {
 }
 
 const defSettings = () => ({
-  onboarded: false, model: '', language: 'ru', aiTemplate: DEFAULT_AI_TEMPLATE, phrases: true,
-  theme: 'system', recordOnOpen: false, widget: 'button', name: '',
+  onboarded: false, model: '', language: 'ru', aiTemplate: DEFAULT_AI_TEMPLATE, aiTemplateIdea: DEFAULT_AI_TEMPLATE_IDEA, phrases: true,
+  theme: 'system', recordOnOpen: false, widget: 'mic', name: '', glow: 'auto',
 });
 
 let db = { version: 1, rubrics: [], ideas: [], settings: defSettings() };
@@ -28,13 +31,13 @@ export function decode(text) {
   const s = { ...defSettings(), ...(o.settings || {}) };
   return {
     version: 1,
-    rubrics: (o.rubrics || []).map(r => ({ id: String(r.id), name: r.name || '', color: toInt(r.color) })),
+    rubrics: (o.rubrics || []).map(r => ({ id: String(r.id), name: r.name || '', color: toInt(r.color), deletedAt: r.deletedAt || 0 })),
     ideas: (o.ideas || []).map(i => ({
-      id: String(i.id), title: i.title || '', rubricId: i.rubricId ?? null, status: i.status || 'RAW',
+      id: String(i.id), title: i.title || '', rubricId: i.rubricId ?? null, status: statusOf(i.status),
       created: i.created || Date.now(), updated: i.updated || i.created || Date.now(), deletedAt: i.deletedAt || 0,
       items: (i.items || []).map(t => ({
         id: String(t.id), type: t.type || 'TEXT', text: t.text || '', file: t.file || '', url: t.url || '',
-        durationMs: t.durationMs || 0, tx: t.tx || 'NONE', created: t.created || Date.now(),
+        durationMs: t.durationMs || 0, tx: t.tx || 'NONE', created: t.created || Date.now(), done: !!t.done,
       })),
     })),
     settings: s,
@@ -64,15 +67,23 @@ export const update = fn => set(fn(db));
 export const flush = () => writing;
 
 // ---- идеи ----
-export const active = d => d.ideas.filter(i => !i.deletedAt);
-export const trash = d => d.ideas.filter(i => i.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
+// d.rubrics хранит все рубрики, вместе с убранными в архив (deletedAt), как в Android
+const archivedRubric = (d, id) => !!id && d.rubrics.some(r => r.id === id && r.deletedAt);
+/** Рабочие рубрики по порядку */
+export const rubrics = d => d.rubrics.filter(r => !r.deletedAt);
+export const archivedRubrics = d => d.rubrics.filter(r => r.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt);
+/** Рабочие идеи: без удалённых, закрытых и идей архивных рубрик */
+export const active = d => d.ideas.filter(i => !i.deletedAt && i.status !== 'DONE' && !archivedRubric(d, i.rubricId));
+export const closed = d => d.ideas.filter(i => !i.deletedAt && i.status === 'DONE' && !archivedRubric(d, i.rubricId)).sort((a, b) => b.updated - a.updated);
+export const trash = d => d.ideas.filter(i => i.deletedAt && !archivedRubric(d, i.rubricId)).sort((a, b) => b.deletedAt - a.deletedAt);
+export const countIn = (d, rid) => d.ideas.filter(i => i.rubricId === rid && !i.deletedAt).length;
 export const idea = (id, d = db) => d.ideas.find(i => i.id === id);
 export const rubric = (id, d = db) => d.rubrics.find(r => r.id === id);
 
 export function displayTitle(i) {
   if (i.title.trim()) return i.title.trim();
   const first = i.items.find(t => t.text.trim());
-  if (first) return headline(first.text);
+  if (first) return headline(plain(first.text.trim()).replace(/\n/g, ' '));
   const v = i.items.filter(t => t.type === 'VOICE');
   if (v.some(t => t.tx === 'RECORDING')) return 'Идёт запись…';
   if (v.some(t => t.tx === 'PENDING' || t.tx === 'RUNNING')) return 'Расшифровываю…';
@@ -86,10 +97,10 @@ export const allText = i => i.items.map(t => t.type === 'LINK' ? t.url + ' ' + t
 
 export function newIdea(rubricId = null, items = []) {
   const now = Date.now();
-  return { id: newId(), title: '', rubricId, status: 'RAW', items, created: now, updated: now, deletedAt: 0 };
+  return { id: newId(), title: '', rubricId, status: 'WORK', items, created: now, updated: now, deletedAt: 0 };
 }
 export function newItem(type, extra = {}) {
-  return { id: newId(), type, text: '', file: '', url: '', durationMs: 0, tx: 'NONE', created: Date.now(), ...extra };
+  return { id: newId(), type, text: '', file: '', url: '', durationMs: 0, tx: 'NONE', created: Date.now(), done: false, ...extra };
 }
 
 export const addIdea = i => update(d => ({ ...d, ideas: [i, ...d.ideas] }));
@@ -107,36 +118,56 @@ export function removeItem(ideaId, itemId) {
   if (t?.file) idb.del('files', t.file);
 }
 export const trashIdea = id => update(d => ({ ...d, ideas: d.ideas.map(i => i.id === id ? { ...i, deletedAt: Date.now() } : i) }));
-export const restoreIdea = id => update(d => ({ ...d, ideas: d.ideas.map(i => i.id === id ? { ...i, deletedAt: 0 } : i) }));
+/** Вернуть из архива; если рубрика идеи в архиве, идея идёт во «Входящие» */
+export const restoreIdea = id => update(d => ({ ...d, ideas: d.ideas.map(i => i.id !== id ? i
+  : { ...i, deletedAt: 0, status: 'WORK', rubricId: archivedRubric(d, i.rubricId) ? null : i.rubricId, updated: Date.now() }) }));
+/** Записи одной идеи переносятся в конец другой, первая идея исчезает */
+export function mergeInto(srcId, dstId) {
+  const src = idea(srcId); if (!src || srcId === dstId) return;
+  update(d => ({ ...d, ideas: d.ideas.filter(i => i.id !== srcId).map(i => i.id !== dstId ? i
+    : { ...i, items: [...i.items, ...src.items], title: i.title || src.title, updated: Date.now() }) }));
+}
 export function deleteIdea(id) {
   const i = idea(id);
   if (!i) return;
   update(d => ({ ...d, ideas: d.ideas.filter(x => x.id !== id) }));
   i.items.forEach(t => t.file && idb.del('files', t.file));
 }
-export const emptyTrash = () => trash(db).forEach(i => deleteIdea(i.id));
+/** Очистить архив: закрытые, удалённые и архивные рубрики с их идеями */
+export function emptyTrash() {
+  closed(db).forEach(i => deleteIdea(i.id));
+  trash(db).forEach(i => deleteIdea(i.id));
+  archivedRubrics(db).forEach(r => eraseRubric(r.id));
+}
 
 // ---- рубрики ----
 export function addRubric(name) {
-  const used = new Set(db.rubrics.map(r => cssColor(r.color).toUpperCase()));
-  const c = RUBRIC_COLORS.find(x => !used.has(x.toUpperCase())) || RUBRIC_COLORS[db.rubrics.length % RUBRIC_COLORS.length];
-  const r = { id: newId(), name: name.trim(), color: toInt(c) };
+  const used = new Set(rubrics(db).map(r => cssColor(r.color).toUpperCase()));
+  const c = RUBRIC_COLORS.find(x => !used.has(x.toUpperCase())) || RUBRIC_COLORS[rubrics(db).length % RUBRIC_COLORS.length];
+  const r = { id: newId(), name: name.trim(), color: toInt(c), deletedAt: 0 };
   update(d => ({ ...d, rubrics: [...d.rubrics, r] }));
   return r;
 }
 export const renameRubric = (id, name) => update(d => ({ ...d, rubrics: d.rubrics.map(r => r.id === id ? { ...r, name: name.trim() } : r) }));
 export function moveRubric(id, delta) {
-  update(d => {
-    const l = [...d.rubrics]; const i = l.findIndex(r => r.id === id); const j = i + delta;
-    if (i < 0 || j < 0 || j >= l.length) return d;
-    l.splice(j, 0, l.splice(i, 1)[0]);
-    return { ...d, rubrics: l };
-  });
+  const l = rubrics(db).map(r => r.id); const i = l.indexOf(id); const j = i + delta;
+  if (i < 0 || j < 0 || j >= l.length) return;
+  l.splice(j, 0, l.splice(i, 1)[0]); reorderRubrics(l);
 }
-export const deleteRubric = id => update(d => ({
-  ...d, rubrics: d.rubrics.filter(r => r.id !== id),
-  ideas: d.ideas.map(i => i.rubricId === id ? { ...i, rubricId: null } : i),
-}));
+/** Новый порядок рабочих рубрик; архивные остаются в конце */
+export const reorderRubrics = ids => update(d => {
+  const by = Object.fromEntries(d.rubrics.map(r => [r.id, r]));
+  const head = ids.map(id => by[id]).filter(Boolean);
+  return { ...d, rubrics: [...head, ...d.rubrics.filter(r => !ids.includes(r.id))] };
+});
+/** Рубрика уходит в архив вместе со своими идеями, её можно вернуть */
+export const archiveRubric = id => update(d => ({ ...d, rubrics: d.rubrics.map(r => r.id === id ? { ...r, deletedAt: Date.now() } : r) }));
+export const restoreRubric = id => update(d => ({ ...d, rubrics: d.rubrics.map(r => r.id === id ? { ...r, deletedAt: 0 } : r) }));
+export function eraseRubric(id) {
+  db.ideas.filter(i => i.rubricId === id).forEach(i => deleteIdea(i.id));
+  update(d => ({ ...d, rubrics: d.rubrics.filter(r => r.id !== id) }));
+}
+export const deleteRubric = archiveRubric;
 
 export const settings = fn => update(d => ({ ...d, settings: fn(d.settings) }));
 export const replaceAll = next => set(next);
