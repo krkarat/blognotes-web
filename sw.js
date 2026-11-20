@@ -1,8 +1,8 @@
 // Приложение открывается без интернета: всё нужное лежит в кэше. Модель хранится отдельно (IndexedDB).
-const VERSION = 'bn-418851b';
+const VERSION = 'bn-e28431a';
 const FILES = [
   './', 'index.html', 'app.css', 'manifest.webmanifest',
-  'fonts/onest.woff2', 'fonts/unbounded.woff2', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
+  'fonts/onest.woff2', 'fonts/unbounded.woff2', 'icons/icon-180.png', 'icons/icon-167.png', 'icons/icon-152.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'whisper/whisper.js', 'whisper/whisper.wasm',
   'js/app.js', 'js/store.js', 'js/idb.js', 'js/texts.js', 'js/audio.js', 'js/rec.js', 'js/models.js', 'js/transcriber.js',
   'js/worker.js', 'js/format.js', 'js/dust.js', 'icons/mic3d.png', 'js/wake.js', 'js/log.js', 'js/zip.js', 'js/icons.js', 'js/vendor/preact-htm.js',
